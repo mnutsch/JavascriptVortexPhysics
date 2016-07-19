@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<img id="yoga" src="yoga_small.png" alt="myImage" style="display: none;">
+<img id="rocket" src="rocket-small.png" alt="myImage2" style="display: none;">
+<img id="octopus" src="octopus_small.png" alt="myImage2" style="display: none;">
+
+<canvas id="myCanvas" width="500" height="300" style="border:1px solid #c3c3c3;">
+Your browser does not support the HTML5 canvas tag.
+</canvas>
+
+<br>
+<textarea id="alltext" ></textarea>
+<br>
+<br>
+Vortex X, Y
+<input type="number" value="250" id="vortexX">
+<input type="number" value="220" id="vortexY">
+<br>
+<br>
+Vortex Amp, Mode
+<input type="number" value="800" id="vortexAmp">
+<input type="number" value="50" id="vortexMod">
+<br>
+<br>
+Reset Image After (steps)
+<input type="number" value="100" id="resetCount">
+<br>
+<br>
+Image
+<select id="imageName">
+  <option value="rocket">Rocket</option>
+  <option value="yoga">Yoga</option>
+  <option value="octopus">Octopus</option>
+</select> 
+<br>
+<br>
+ <button onclick="resetImage()">Reset Image</button> 
+ 
+ 
+<script type="text/javascript">
+
+	var timerVar = setInterval(myTimer, 5);
+
+	var max_x_coord = 300;
+	var max_y_coord = 500;
+
+	var imageToUse = document.getElementById('imageName').value;
+	
+	var img_max_x_coord = document.getElementById(imageToUse).width;
+	var img_max_y_coord = document.getElementById(imageToUse).height;
+	//alert(max_x_coord);
+	//alert(max_y_coord);
+
+	
+	//add counter for number of pixels
+	var numberOfPixels = 0;
+	
+	var pixelData;
+	var c; //canvas
+
+	//arrays to store pixel colors: R G B A
+	var R_values = new Array();
+	var G_values = new Array();
+	var B_values = new Array();
+	var A_values = new Array();
+	
+	//dimensional arrays to store the locations of the pixels: X Y
+	var pixel_locations_x = new Array();
+	var pixel_locations_y = new Array();
+	
+	var pixel_vectors_x = new Array();
+	var pixel_vectors_y = new Array();
+	
+	var random_num;
+	
+	//this text displays in the box
+	var textStatus = "";
+
+	//read the pixels of an image
+	c = document.getElementById("myCanvas");
+	var ctx = c.getContext("2d");
+	
+	var gravityAmplitude = 0;
+	
+	var vortexXCoord = 255;
+	var vortexYCoord = 200;
+	var vortexAmplitude = 300;
+	var vortexModifier = 10;
+
+	
+
+window.onload = function() 
+{
+	resetImage();
+}
+
+function resetImage()
+{
+	numberOfPixels = 0;
+
+	imageToUse = document.getElementById('imageName').value;
+	
+	//initialize the arrays
+	
+	for (var a = 0; a < 5; a++) 
+	{
+		pixel_locations_x[a] = 0;
+		pixel_locations_y[a] = 0;
+		pixel_vectors_x[a] = 0;
+		pixel_vectors_y[a] = 0;
+		R_values[a] = 0;
+		G_values[a] = 0;
+		B_values[a] = 0;
+		A_values[a] = 0;
+	}
+		
+	//initialize the canvas
+	ctx.clearRect(0, 0, c.width, c.height);
+	
+	ctx.fillStyle = "rgba(255,255,255,255)";
+	ctx.fillRect(0,0,c.width,c.height);
+	var img = document.getElementById('yoga');
+	
+	if(imageToUse == "yoga")
+	{
+		img = document.getElementById('yoga');
+	}
+	else if(imageToUse == "rocket")
+	{
+		img = document.getElementById('rocket');
+	}
+	else if(imageToUse == "octopus")
+	{
+		img = document.getElementById('octopus');
+	}
+	else
+	{
+		alert("img setting not found");
+	}
+	
+	//ctx.drawImage(img,document.getElementById(imageToUse).width,document.getElementById(imageToUse).height);
+	ctx.drawImage(img,(c.width - document.getElementById(imageToUse).width) / 2,(c.height - document.getElementById(imageToUse).height) / 2);
+	
+	//ctx.drawImage(img,0,0);
+
+	var imgData=ctx.getImageData(0,0,c.width,c.height);
+
+	//loop through all rows (Y)
+	for (var i = 0; i < max_y_coord; i += 1) 
+	{
+		
+		//loop through all columns (X)
+		for (var j = 0; j < max_x_coord; j += 1) 
+		{
+			//read the pixel values
+			pixelData = ctx.getImageData(i, j, 1, 1).data;
+			
+			//if the pixel is any color other than white
+			if((pixelData[0] != 255) && (pixelData[1] != 255) && (pixelData[2] != 255)) //dev note this isn't working
+			{
+					//alert("pixel " + numberOfPixels + " found at " + j + ", " + i);
+					R_values[numberOfPixels] = pixelData[0];
+					G_values[numberOfPixels] = pixelData[1];
+					B_values[numberOfPixels] = pixelData[2];
+					A_values[numberOfPixels] = pixelData[3];
+					pixel_locations_x[numberOfPixels] = i; //dev note this isn't working
+					pixel_locations_y[numberOfPixels] = j; //dev note this isn't working
+					numberOfPixels = numberOfPixels + 1;
+					pixel_vectors_x[numberOfPixels] = 0;
+					pixel_vectors_y[numberOfPixels] = 0;
+			}
+		}
+	}
+}
+
+function findSlope(argvortexXCoord, argvortexYCoord, argpixelXCoord, argpixelYCoord)
+{
+	var slopeValue = (argvortexYCoord - argpixelYCoord)/(argvortexXCoord - argpixelXCoord);
+
+	return slopeValue;
+}
+
+function findDistance(argvortexXCoord, argvortexYCoord, argpixelXCoord, argpixelYCoord)
+{
+	var returnDistance = Math.sqrt( (argvortexXCoord-=argpixelXCoord)*argvortexXCoord + (argvortexYCoord-=argpixelYCoord)*argvortexYCoord );;
+
+	return returnDistance;
+}
+
+//main loop
+function myTimer() 
+{
+	textStatus = new Date();
+	document.getElementById("alltext").value = textStatus;
+	
+	vortexXCoord = document.getElementById('vortexX').value;
+	vortexYCoord = document.getElementById('vortexY').value;
+	
+	vortexAmplitude = document.getElementById('vortexAmp').value;
+	vortexModifier = document.getElementById('vortexMod').value;
+	
+	//erase the image
+	ctx.clearRect(0, 0, c.width, c.height);
+
+
+//change the location of some pixels
+	//loop through all pixels
+	var pixelsAlreadyMoved = new Array();
+
+	var vortexCenterSlope = 0;
+	var vortexDistance = 0;
+	var vortexEffect = 0;
+	var vortexSlope = 0;
+	
+	//initialize the arrays of already moved pixels
+	/*
+	for (var a = 0; a < max_x_coord; a++) 
+	{
+		pixelsAlreadyMoved[a] = new Array();
+		for ( var b = 0; b < max_y_coord; b++ ) 
+		{
+			pixelsAlreadyMoved[a][b] = 0;
+		}
+	}
+	*/
+	
+	//alert("angle of a 1/1 slope = " + Math.atan(1));
+	
+	for (var i = 0; i < numberOfPixels; i += 1) 
+	{
+		//if(pixelsAlreadyMoved[pixel_locations_x[i]][pixel_locations_y[i]] == 0)
+		//{
+			
+			//add gravity to vector
+			pixel_vectors_y[i] = pixel_vectors_y[i] + gravityAmplitude;
+			
+			//alert(Math.floor(pixel_locations_y));
+			//alert(findSlope(vortexXCoord, vortexYCoord, Math.floor(pixel_locations_x[i]), Math.floor(pixel_locations_y[i])));
+			vortexDistance = findDistance(vortexXCoord, vortexYCoord, Math.floor(pixel_locations_x[i]), Math.floor(pixel_locations_y[i]));
+			//vortexDistance = findDistance(2, -2, 0, 0);
+			vortexEffect = 1 / ((vortexDistance * vortexDistance) / vortexModifier);
+			vortexSlope = findSlope(vortexXCoord, vortexYCoord, Math.floor(pixel_locations_x[i]), Math.floor(pixel_locations_y[i]));
+			if(vortexSlope > 50)
+			{
+				vortexSlope = -1;
+			}
+			
+			//alert("vortex Distance = " + vortexDistance + ". vortex effect = " + vortexEffect + ". vortex slope = " + vortexSlope + ". angle = " + Math.atan(vortexSlope));
+			
+			if(vortexXCoord >= Math.floor(pixel_locations_x[i]))
+			{
+				pixel_vectors_x[i] = pixel_vectors_x[i] - (vortexEffect * vortexSlope);
+			}
+			else
+			{
+				pixel_vectors_x[i] = pixel_vectors_x[i] + (vortexEffect * vortexSlope);				
+			}	
+			
+			if(vortexYCoord >= Math.floor(pixel_locations_y[i]))
+			{
+				pixel_vectors_y[i] = pixel_vectors_y[i] + vortexEffect;
+			}
+			else
+			{
+				pixel_vectors_y[i] = pixel_vectors_y[i] - vortexEffect;				
+			}	
+						
+			//UR make Slope Y negative
+			//LR make Slope X negative
+			//LL make Slope Y positive
+			//UL make Slope X positive
+			//alert("Distance " + vortexDistance);
+			
+			//alert(pixel_vectors_y[i]);
+			//alert(Math.round(pixel_vectors_y[i]));
+			//alert(pixel_locations_y[i]);
+			//alert(Math.floor(pixel_locations_y[i]));
+			
+			newPixelLocationX = Math.floor(pixel_locations_x[i]) + Math.round(pixel_vectors_x[i]);
+			newPixelLocationY = Math.floor(pixel_locations_y[i]) + Math.round(pixel_vectors_y[i]);
+			
+			//alert("current XY: " + pixel_locations_x[i] + ", " + pixel_locations_y[i] + ". new XY: " + newPixelLocationX + ", " + newPixelLocationY);
+			
+			//alert(newPixelLocationY);
+			
+			Math.round(newPixelLocationX);
+			Math.round(newPixelLocationY);
+
+			//check for a pixel in the way
+			//loop through all pixels
+			destinationAvailable = 1;
+			for (var j = 0; j < numberOfPixels; j += 1) 
+			{
+				if((pixel_locations_x[j] == newPixelLocationX) && (pixel_locations_y[j] == newPixelLocationY))
+				{
+					//destinationAvailable = 0;
+				}
+			}
+			
+			//check for a border
+			if(newPixelLocationX <= 0)
+			{
+				destinationAvailable = 0;
+			}
+			if(newPixelLocationY <= 0)
+			{
+				destinationAvailable = 0;
+			}
+			if(newPixelLocationX >= max_y_coord)
+			{
+				destinationAvailable = 0;
+			}
+			if(newPixelLocationY >= max_x_coord)
+			{
+				destinationAvailable = 0;
+			}
+			
+			//alert("Looking at pixel " + i + " location " + pixel_locations_x[i] + ", " + pixel_locations_y[i] + ". New location is " + newPixelLocationX + ", " + newPixelLocationY);
+			
+			//if there isn't a blocking pixel
+			if(destinationAvailable == 1)
+			{
+				pixel_locations_x[i] = newPixelLocationX;
+				pixel_locations_y[i] = newPixelLocationY;
+				//pixelsAlreadyMoved[newPixelLocationX][newPixelLocationY] = 1;
+			}
+			else
+			{
+				//pixelsAlreadyMoved[pixel_locations_x[i]][pixel_locations_y[i]] = 1;
+			}
+		
+		//reset gravity amplitude
+		pixel_vectors_y[i] =  pixel_vectors_y[i] - gravityAmplitude;
+		//}
+
+		
+		
+		
+	}
+
+	
+timerVar = timerVar + 1;
+		
+var resetImageAt = document.getElementById('resetCount').value;	
+if((timerVar % resetImageAt) == 0)
+{
+	resetImage();
+	//alert("Image should reset now");
+}
+	
+//function to draw the image
+
+ctx.clearRect(0, 0, c.width, c.height);
+
+//loop through all pixels
+	for (var i = 0; i < numberOfPixels; i += 1) 
+	{	
+		//alert("Filling pixel at " + pixel_locations_x[i] + ", " + pixel_locations_y[i]);
+		//textStatus = "Filling pixel at " + pixel_locations_x[i] + ", " + pixel_locations_y[i];
+		//document.getElementById("alltext").value = textStatus;
+
+	
+		//write the pixel values
+		//ctx.fillStyle= "rgba(" + R_values[i] + ", " + G_values[i] + ", " + B_values[i] + ", " + A_values[i] + ")";
+		ctx.fillStyle= "rgba(0, 0, 0, 255)";
+				
+		ctx.fillRect(pixel_locations_x[i],pixel_locations_y[i],1,1); 
+	}
+	//draw the vortex center
+	ctx.fillStyle= "rgba(255, 0, 0, 255)";
+	ctx.fillRect(vortexXCoord,vortexYCoord,3,3); 
+
+
+
+}
+</script>
+
+
+
+
+</body>
+</html>
